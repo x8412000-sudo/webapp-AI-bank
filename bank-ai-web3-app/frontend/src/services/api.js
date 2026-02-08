@@ -126,17 +126,35 @@ export const transactionAPI = {
 };
 
 // -------------------------- AI API --------------------------
+
 export const aiAPI = {
-  // AI聊天（修复版）
-  chatbot: (message) => aiAPI.chat(message),
+  // AI聊天 - 修复版
+  chatbot: (message) => {
+    // 支持字符串和对象两种输入
+    const messageText = typeof message === 'string' 
+      ? message 
+      : (message?.message || '');
+    
+    const userId = typeof message === 'string' 
+      ? 'guest' 
+      : (message?.user_id || 'guest');
+    
+    return api.post('/api/ai/chat', {
+      message: messageText,
+      user_id: userId
+    });
+  },
+
+  // AI Chat - 更严格的验证
   chat: (message) => {
-    if (!message?.message) throw new Error('message.message is required');
+    if (!message?.message) {
+      throw new Error('message.message is required');
+    }
     return api.post('/api/ai/chat', {
       message: message.message,
       user_id: message.user_id || 'guest'
     });
   },
-  
   // AI语音聊天
   chatVoice: (audioFile, message, userId, generateAudio) => {
     const formData = new FormData();
@@ -152,17 +170,16 @@ export const aiAPI = {
     });
   },
   
-  // AI图像分析
+  
+  
+  // 修改 chatImage 方法  
   chatImage: (imageFile, message, userId) => {
     const formData = new FormData();
     formData.append('image', imageFile);
     if (message) formData.append('message', message);
     formData.append('user_id', userId || 'guest');
-    
     return api.post('/api/ai/chat/image', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
+      headers: { 'Content-Type': 'multipart/form-data' }
     });
   },
   

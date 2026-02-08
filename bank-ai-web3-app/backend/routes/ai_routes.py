@@ -201,60 +201,61 @@ def chat_voice():
 
 @ai_bp.route('/chat/image', methods=['POST'])
 def chat_image():
-    """AI 图像分析接口"""
+    """AI Image Analysis Interface"""
     print("=" * 60)
-    print("🖼️  收到图像分析请求")
+    print("🖼️ Image Analysis Request Received")
     print("=" * 60)
     
     try:
-        # 打印请求信息
-        print(f"📋 请求方法: {request.method}")
-        print(f"📋 请求类型: {request.content_type}")
-        print(f"📋 表单数据: {list(request.form.keys())}")
-        print(f"📋 文件列表: {list(request.files.keys())}")
+        # Print request information
+        print(f"📋 Request Method: {request.method}")
+        print(f"📋 Content Type: {request.content_type}")
+        print(f"📋 Form Data Keys: {list(request.form.keys())}")
+        print(f"📋 File Keys: {list(request.files.keys())}")
         
-        # 检查是否有文件上传
+        # Check if file is uploaded
         if 'image' not in request.files:
-            print(f"❌ 没有找到 image 文件")
-            print(f"❌ 可用文件: {list(request.files.keys())}")
+            print(f"❌ No image file found")
+            print(f"❌ Available files: {list(request.files.keys())}")
             return jsonify({
                 "success": False,
-                "error": "请上传图像文件"
+                "error": "Please upload an image file"
             }), 400
         
         image_file = request.files['image']
-        print(f"📁 文件名: {image_file.filename}")
-        print(f"📁 文件类型: {image_file.content_type}")
+        print(f"📁 Filename: {image_file.filename}")
+        print(f"📁 File Type: {image_file.content_type}")
         
-        # 读取文件内容
+        # Read file content
         image_data = image_file.read()
-        print(f"📁 文件大小: {len(image_data)} bytes")
+        print(f"📁 File Size: {len(image_data)} bytes")
         
-        # 获取其他参数
+        # Get other parameters
         message = request.form.get('message', '')
         user_id = request.form.get('user_id', 'guest')
-
-        print(f"📝 图像参数:")
-        print(f"   - message: {message}")
-        print(f"   - user_id: {user_id}")
-
-        # 调用 AI 图像服务
-        print("🔄 调用 AI 服务...")
+        
+        print(f"📝 Image Parameters:")
+        print(f" - message: {message}")
+        print(f" - user_id: {user_id}")
+        
+        # Call AI image service
+        print("🔄 Calling AI service...")
         result = ai_banker.chat_image(image_file, message, user_id)
-        print(f"🤖 图像响应: {result}")
-
+        
+        print(f"🤖 Image Response: {result}")
+        
         return jsonify({
             "success": True,
             "image_analysis": result.get('analysis', ''),
             "response": result.get('response', '')
         })
-
+        
     except Exception as e:
-        print(f"❌ AI 图像接口异常：{str(e)}")
-        print(f"❌ 错误堆栈：\n{traceback.format_exc()}")
+        print(f"❌ AI Image Interface Error: {str(e)}")
+        print(f"❌ Error Stack Trace:\n{traceback.format_exc()}")
         return jsonify({
             "success": False,
-            "error": f"AI 图像服务异常：{str(e)}"
+            "error": f"AI Image Service Error: {str(e)}"
         }), 500
 
 @ai_bp.route('/advice', methods=['GET'])

@@ -219,30 +219,30 @@ class AIService:
 
     def chat_image(self, image_file, message: str, user_id: str = 'guest') -> dict:
         """
-        AI 图像分析
+        AI Image Analysis
 
         Args:
-            image_file: 图像文件
-            message: 可选文本消息
-            user_id: 用户ID
+            image_file: Image file
+            message: Optional text message
+            user_id: User ID
 
         Returns:
-            包含图像分析和 AI 响应的字典
+            Dictionary containing image analysis and AI response
         """
         try:
-            analysis = "这是一张银行相关的图像（模拟分析）"
-            ai_response = self.chat(f"图像分析：{analysis}。{message}", user_id)
+            # Simulate image analysis
+            analysis = "This is a banking-related image (simulated analysis)"
+            ai_response = self.chat(f"Image analysis: {analysis}. {message}", user_id)
 
             return {
                 "analysis": analysis,
                 "response": ai_response
             }
-
         except Exception as e:
-            print(f"❌ AI 图像分析异常：{str(e)}")
+            print(f"❌ AI Image Analysis Error: {str(e)}")
             return {
                 "analysis": "",
-                "response": "抱歉，图像分析服务暂时不可用"
+                "response": "Sorry, image analysis service is temporarily unavailable"
             }
 
     def get_investment_advice(self, account_id: str) -> str:
