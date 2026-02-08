@@ -1,0 +1,34 @@
+# Web framework and API
+Flask==2.3.3
+Flask-CORS==4.0.0
+Flask-JWT-Extended==4.5.3
+fastapi==0.104.1
+uvicorn==0.24.0
+
+# environment
+python-dotenv==1.0.0
+bcrypt==4.0.1
+python-decouple==3.8
+
+# HTTP requests
+requests==2.31.0
+
+# data analytics
+scikit-learn==1.3.2
+pandas==2.1.3
+numpy==1.26.4
+sentence-transformers==2.2.2
+
+# AI
+google-generativeai==0.3.2
+markdown==3.5.2
+
+# speech 
+SpeechRecognition==3.10.0
+gtts==2.3.2
+openai-whisper==20231117
+torch
+
+# image
+Pillow==10.1.0
+pytesseract==0.3.10

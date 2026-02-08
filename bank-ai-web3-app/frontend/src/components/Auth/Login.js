@@ -2,150 +2,118 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-toastify';
+import '../../App.css';
 
 function Login() {
-  const [credentials, setCredentials] = useState({ 
-    username: '', 
-    password: '' 
-  });
+  const [credentials, setCredentials] = useState({ username: '', password: '' });
+  const [errors, setErrors] = useState({});
   const { login, loading } = useAuth();
   const navigate = useNavigate();
 
+  const validateForm = () => {
+    const newErrors = {};
+    if (!credentials.username.trim()) {
+      newErrors.username = 'Username cannot be empty';
+    }
+    if (!credentials.password) {
+      newErrors.password = 'Password cannot be empty';
+    } else if (credentials.password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters';
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!credentials.username || !credentials.password) {
-      toast.error('请输入用户名和密码');
+    if (!validateForm()) {
       return;
     }
 
     try {
-      await login(credentials);
-      toast.success('登录成功！');
-      navigate('/');
+      const loginData = {
+        username: credentials.username,
+        password: credentials.password
+      };
+      console.log('Login request data:', loginData);
+      await login(loginData);
+      console.log('Login successful, preparing to redirect...');
+      toast.success('Login successful!');
+      
+      setTimeout(() => {
+        navigate('/');
+        console.log('Redirected to home page');
+      }, 100);
     } catch (error) {
-      toast.error('登录失败，请重试');
+      console.error('Login component error:', error);
+      toast.error(error.message);
+      if (error.message.includes('Username or password incorrect')) {
+        setCredentials(prev => ({ ...prev, password: '' }));
+      }
     }
   };
 
   const handleChange = (e) => {
-    setCredentials({
-      ...credentials,
-      [e.target.name]: e.target.value
-    });
+    const { name, value } = e.target;
+    setCredentials({ ...credentials, [name]: value });
+    if (errors[name]) {
+      setErrors({ ...errors, [name]: '' });
+    }
   };
 
   return (
-    <div style={{
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-    }}>
-      <div style={{
-        background: 'white',
-        padding: '40px',
-        borderRadius: '10px',
-        boxShadow: '0 10px 40px rgba(0,0,0,0.1)',
-        width: '100%',
-        maxWidth: '400px'
-      }}>
-        <h2 style={{ textAlign: 'center', marginBottom: '30px', color: '#333' }}>
-          🏦 AI Web3 Bank
-        </h2>
+    <div className="login-container">
+      <div className="login-form">
+        <h2>🏦 SecureTrust Bank</h2>
         
         <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', marginBottom: '5px', color: '#555' }}>
-              用户名
-            </label>
+          <div className="form-group">
+            <label htmlFor="username">Username</label>
             <input
               type="text"
+              id="username"
               name="username"
               value={credentials.username}
               onChange={handleChange}
-              placeholder="输入用户名"
-              style={{
-                width: '100%',
-                padding: '12px',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                fontSize: '16px'
-              }}
-              required
+              placeholder="Enter your username"
             />
+            {errors.username && <div className="error-message">{errors.username}</div>}
           </div>
 
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', marginBottom: '5px', color: '#555' }}>
-              密码
-            </label>
+          <div className="form-group">
+            <label htmlFor="password">Password</label>
             <input
               type="password"
+              id="password"
               name="password"
               value={credentials.password}
               onChange={handleChange}
-              placeholder="输入密码"
-              style={{
-                width: '100%',
-                padding: '12px',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                fontSize: '16px'
-              }}
-              required
+              placeholder="Enter your password"
             />
+            {errors.password && <div className="error-message">{errors.password}</div>}
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              width: '100%',
-              padding: '12px',
-              background: '#4299e1',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              fontSize: '16px',
-              cursor: 'pointer',
-              opacity: loading ? 0.7 : 1
-            }}
-          >
-            {loading ? '登录中...' : '登录'}
+          <button type="submit" className="login-button" disabled={loading}>
+            {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
 
-        <div style={{ textAlign: 'center', marginTop: '20px' }}>
-          <p style={{ color: '#666' }}>
-            还没有账户？{' '}
-            <Link 
-              to="/register" 
-              style={{ color: '#4299e1', textDecoration: 'none' }}
-            >
-              立即注册
-            </Link>
-          </p>
-          
-          <button
-            onClick={() => {
-              setCredentials({ username: 'demo', password: 'demo123' });
-              toast.info('已填充演示账号');
-            }}
-            style={{
-              marginTop: '10px',
-              background: 'none',
-              border: '1px solid #4299e1',
-              color: '#4299e1',
-              padding: '8px 15px',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-          >
-            使用演示账号
-          </button>
+        <div className="register-link">
+          Don't have an account?{' '}
+          <Link to="/register">Register Now</Link>
         </div>
+
+        <button
+          className="demo-button"
+          onClick={() => {
+            setCredentials({ username: 'demo', password: 'demo123' });
+            setErrors({});
+            toast.info('Demo account filled: username demo, password demo123');
+          }}
+          disabled={loading}
+        >
+          Use Demo Account
+        </button>
       </div>
     </div>
   );

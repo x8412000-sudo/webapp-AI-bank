@@ -18,15 +18,5 @@ class Config:
     OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
     AI_MODEL = 'gpt-3.5-turbo'
     
-    # Web3 Configuration
-    WEB3_PROVIDER = os.environ.get('WEB3_PROVIDER', 'https://sepolia.infura.io/v3/YOUR_INFURA_KEY')
-    CONTRACT_ADDRESS = os.environ.get('CONTRACT_ADDRESS', '')
-    PRIVATE_KEY = os.environ.get('PRIVATE_KEY', '')
-    
-    # Binance API for crypto prices
-    BINANCE_API_KEY = os.environ.get('BINANCE_API_KEY', '')
-    BINANCE_SECRET_KEY = os.environ.get('BINANCE_SECRET_KEY', '')
-    
     # Feature Flags
     ENABLE_AI_FEATURES = True
-    ENABLE_WEB3_FEATURES = True

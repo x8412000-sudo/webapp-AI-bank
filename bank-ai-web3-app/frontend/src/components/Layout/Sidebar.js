@@ -1,54 +1,58 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import '../../App.css';
 
-function Sidebar({ isOpen }) {
-  if (!isOpen) return null;
-
+function Sidebar({ isOpen, onClose }) {
+  const location = useLocation();
+  
   const menuItems = [
-    { path: '/', icon: '📊', label: '仪表板' },
-    { path: '/accounts', icon: '💰', label: '账户' },
-    { path: '/transfer', icon: '↔️', label: '转账' },
-    { path: '/transactions', icon: '📋', label: '交易记录' },
-    { path: '/ai/chat', icon: '🤖', label: 'AI助手' },
-    { path: '/ai/advice', icon: '💡', label: '投资建议' },
-    { path: '/web3/wallet', icon: '🔗', label: '数字货币钱包' },
-    { path: '/support/chat', icon: '💬', label: '在线客服' },
-    { path: '/support/faq', icon: '❓', label: '常见问题' },
+    { path: '/dashboard', icon: 'fas fa-tachometer-alt', label: 'Dashboard' },
+    { path: '/accounts', icon: 'fas fa-wallet', label: 'Accounts' },
+    { path: '/transfer', icon: 'fas fa-exchange-alt', label: 'Transfer' },
+    { path: '/transactions', icon: 'fas fa-history', label: 'Transactions' },
+    { path: '/ai/chat', icon: 'fas fa-robot', label: 'AI Assistant' },
+    { path: '/financial-health', icon: 'fas fa-heartbeat', label: 'Financial Health' },
+    { path: '/settings', icon: 'fas fa-cog', label: 'Settings' },
   ];
 
   return (
-    <div style={{
-      width: '250px',
-      background: '#34495e',
-      color: 'white',
-      height: 'calc(100vh - 70px)',
-      position: 'fixed',
-      left: 0,
-      top: '70px',
-      padding: '20px 0'
-    }}>
-      <ul style={{ listStyle: 'none', padding: 0 }}>
-        {menuItems.map((item, index) => (
-          <li key={index} style={{ marginBottom: '5px' }}>
-            <Link
-              to={item.path}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                padding: '12px 20px',
-                color: 'white',
-                textDecoration: 'none',
-                fontSize: '16px'
-              }}
-            >
-              <span style={{ fontSize: '20px' }}>{item.icon}</span>
-              {item.label}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <>
+      {/* 侧边栏遮罩层 (移动端) */}
+      {isOpen && <div className="sidebar-overlay" onClick={onClose}></div>}
+      
+      <div className={`sidebar ${isOpen ? 'open' : ''}`}>
+        <div className="sidebar-header">
+          <button className="sidebar-close" onClick={onClose}>
+            <i className="fas fa-times"></i>
+          </button>
+        </div>
+        
+        <ul className="sidebar-menu">
+          {menuItems.map((item, index) => (
+            <li key={index} className="menu-item">
+              <Link
+                to={item.path}
+                className={`menu-link ${location.pathname === item.path ? 'active' : ''}`}
+              >
+                <i className={item.icon}></i>
+                <span className="menu-label">{item.label}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+        
+        <div className="sidebar-footer">
+          <p className="bank-info">
+            <i className="fas fa-shield-alt"></i>
+            <span>Bank-grade Security</span>
+          </p>
+          <p className="support">
+            <i className="fas fa-headset"></i>
+            <span>24/7 Support</span>
+          </p>
+        </div>
+      </div>
+    </>
   );
 }
 

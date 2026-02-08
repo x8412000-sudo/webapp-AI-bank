@@ -2,11 +2,10 @@
   "name": "bank-ai-web3-frontend",
   "version": "1.0.0",
   "private": true,
-  "proxy": "http://localhost:5000",
   "dependencies": {
     "@fortawesome/fontawesome-free": "^6.7.2",
     "@hookform/resolvers": "^3.1.1",
-    "axios": "^1.4.0",
+    "axios": "^1.13.4",
     "bootstrap": "^5.3.8",
     "chart.js": "^4.3.0",
     "ethers": "^6.6.4",
@@ -27,7 +26,7 @@
     "yup": "^1.2.0"
   },
   "scripts": {
-    "start": "react-scripts start",
+    "start": "DISABLE_ESLINT_PLUGIN=true FAST_REFRESH=false react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"

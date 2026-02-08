@@ -1,342 +1,420 @@
+# backend/routes/ai_routes.py
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
-import json
-from datetime import datetime
-from ..models import db, User, AIInteraction, ChatSession, ChatMessage
-from ..ai_service import ai_service
-import uuid
+import time
+import base64
+from .ai_service import AIService
 
-ai_bp = Blueprint('ai', __name__)
+ai_banker = AIService()
 
-@ai_bp.route('/api/ai/chat', methods=['POST'])
-@jwt_required()
+ai_bp = Blueprint('ai', __name__, url_prefix='/api/ai')
+
+@ai_bp.route('/chat', methods=['POST'])
 def chat():
-    """AI Chatbot endpoint"""
+
+    import traceback  
+    
     try:
-        user_id = get_jwt_identity()
         data = request.get_json()
+        print(f"📥 收到请求数据: {data}")  # 添加日志
         
-        if not data or not data.get('message'):
-            return jsonify({'error': 'Message is required'}), 400
+        if not data or 'message' not in data:
+            return jsonify({
+                "success": False,
+                "error": "请提供 message 参数"
+            }), 400
         
-        user = User.query.get(user_id)
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
+        message = data.get('message', '')
+        user_id = data.get('user_id', 'guest')
+        print(f"📝 消息内容: {message}, 用户ID: {user_id}")  # 添加日志
         
-        # Get or create chat session
-        session = ChatSession.query.filter_by(
-            user_id=user_id,
-            is_active=True
-        ).first()
-        
-        if not session:
-            session = ChatSession(
-                user_id=user_id,
-                session_id=str(uuid.uuid4())[:8],
-                is_active=True
-            )
-            db.session.add(session)
-            db.session.commit()
-        
-        # Save user message
-        user_message = ChatMessage(
-            session_id=session.id,
-            message_type='user',
-            content=data['message']
-        )
-        db.session.add(user_message)
-        
-        # Get chat history
-        history = ChatMessage.query.filter_by(
-            session_id=session.id
-        ).order_by(ChatMessage.timestamp.desc()).limit(10).all()
-        history = list(reversed(history))
-        
-        # Prepare messages for AI
-        messages = []
-        for msg in history:
-            role = 'user' if msg.message_type == 'user' else 'assistant'
-            messages.append({'role': role, 'content': msg.content})
-        
-        # Add current message
-        messages.append({'role': 'user', 'content': data['message']})
-        
-        # Get user context for AI
-        accounts = user.accounts[:3]
-        recent_transactions = []
-        for account in accounts:
-            transactions = account.transactions[:5]
-            recent_transactions.extend([t.to_dict() for t in transactions])
-        
-        user_context = {
-            'user': user.to_dict(),
-            'accounts': [acc.to_dict() for acc in accounts],
-            'recent_transactions': recent_transactions[-5:],
-            'total_balance': sum(acc.balance for acc in accounts)
-        }
-        
-        # Get AI response
-        ai_response = ai_service.generate_chat_response(messages, user_context)
-        
-        # Save AI response
-        ai_message = ChatMessage(
-            session_id=session.id,
-            message_type='ai',
-            content=ai_response['response']
-        )
-        db.session.add(ai_message)
-        
-        # Save interaction log
-        interaction = AIInteraction(
-            user_id=user_id,
-            interaction_type='chat',
-            prompt=data['message'],
-            response=ai_response['response'],
-            model_used=ai_response.get('model', 'unknown'),
-            tokens_used=ai_response.get('tokens_used', 0),
-            cost=0.0  # Would calculate based on token usage
-        )
-        db.session.add(interaction)
-        
-        db.session.commit()
+        # 调用 AI 服务
+        response = ai_banker.chat(message, user_id)
+        print(f"🤖 AI 响应: {response}")  # 添加日志
         
         return jsonify({
-            'message': ai_response['response'],
-            'session_id': session.session_id,
-            'interaction_id': interaction.id,
-            'timestamp': datetime.now().isoformat()
-        }), 200
+            "success": True,
+            "response": response
+        })
         
     except Exception as e:
-        print(f"Chat error: {e}")
-        return jsonify({'error': str(e)}), 500
+        print(f"❌ AI 聊天接口异常：{str(e)}")  # 已有
+        print(f"❌ 错误堆栈：\n{traceback.format_exc()}")  # 添加完整堆栈
+        return jsonify({
+            "success": False,
+            "error": f"AI 服务异常：{str(e)}"
+        }), 500
 
-@ai_bp.route('/api/ai/advice', methods=['GET'])
-@jwt_required()
+@ai_bp.route('/system/info', methods=['GET'])
+def system_info():
+    """获取AI系统信息"""
+    info = ai_banker.get_system_info()
+    return jsonify({
+        "success": True,
+        "system": {
+            "name": "Professional Banking AI",
+            "version": "1.0.0",
+            "rag_system": "ChromaDB + Custom Knowledge Base",
+            "ai_provider": info["provider"],
+            "knowledge_base": {
+                "documents": info["knowledge_base_count"],
+                "status": "active"
+            }
+        }
+    })
+
+@ai_bp.route('/knowledge/add', methods=['POST'])
+def add_knowledge():
+    """添加新知识"""
+    try:
+        data = request.json
+        
+        if not data or 'content' not in data:
+            return jsonify({
+                "success": False,
+                "error": "缺少 content 参数"
+            }), 400
+        
+        content = data.get('content')
+        metadata = data.get('metadata', {})
+        
+        result = ai_banker.add_knowledge(content, metadata)
+        
+        return jsonify({
+            "success": True,
+            "message": "知识添加成功",
+            "knowledge_added": content[:100] + "..." if len(content) > 100 else content
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+@ai_bp.route('/search', methods=['POST'])
+def search_knowledge():
+    """直接搜索知识库"""
+    try:
+        data = request.json
+        
+        if not data or 'query' not in data:
+            return jsonify({
+                "success": False,
+                "error": "缺少 query 参数"
+            }), 400
+        
+        query = data.get('query')
+        n_results = data.get('n_results', 3)
+        
+        # 直接检索
+        results = ai_banker.retriever.retrieve(query, n_results)
+        
+        return jsonify({
+            "success": True,
+            "query": query,
+            "results": results
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+# 在现有基础上添加这些新的路由
+
+@ai_bp.route('/chat/voice', methods=['POST'])
+def chat_voice():
+    """AI 语音聊天接口"""
+    print("=" * 60)
+    print("🎤 收到语音聊天请求")
+    print("=" * 60)
+    
+    try:
+        # 打印请求信息
+        print(f"📋 请求方法: {request.method}")
+        print(f"📋 请求类型: {request.content_type}")
+        print(f"📋 表单数据: {list(request.form.keys())}")
+        print(f"📋 文件列表: {list(request.files.keys())}")
+        
+        # 检查是否有文件上传
+        if 'audio' not in request.files:
+            print(f"❌ 没有找到 audio 文件")
+            return jsonify({
+                "success": False,
+                "error": "请上传音频文件"
+            }), 400
+        
+        audio_file = request.files['audio']
+        print(f"📁 文件名: {audio_file.filename}")
+        print(f"📁 文件类型: {audio_file.content_type}")
+        
+        # 读取文件内容
+        audio_data = audio_file.read()
+        print(f"📁 文件大小: {len(audio_data)} bytes")
+        
+        # 验证音频数据
+        if len(audio_data) == 0:
+            print("❌ 音频数据为空")
+            return jsonify({
+                "success": False,
+                "error": "音频数据为空，请重新录制"
+            }), 400
+        
+        # 获取其他参数
+        user_id = request.form.get('user_id', 'guest')
+        generate_audio = request.form.get('generate_audio', 'false') == 'true'
+        
+        print(f"📝 语音参数:")
+        print(f" - user_id: {user_id}")
+        print(f" - generate_audio: {generate_audio}")
+        
+        # ✅ 关键修改：传递 audio_data 而不是 audio_file
+        print("🔄 调用 AI 服务进行语音识别...")
+        result = ai_banker.chat_voice(audio_data, user_id, generate_audio)
+        
+        print(f"🤖 语音识别结果: {result.get('transcribed_text', '')}")
+        print(f"🤖 AI 回复: {result.get('response', '')[:100]}...")
+        print(f"🤖 音频响应: {'有' if result.get('audio_response') else '无'}")
+        
+        audio_response = result.get('audio_response', None)
+        if audio_response is not None and isinstance(audio_response, bytes):
+            audio_response = base64.b64encode(audio_response).decode('utf-8')
+
+        return jsonify({
+            "success": True,
+            "transcribed_text": result.get('transcribed_text', ''),
+            "response": result.get('response', ''),
+            "audio_response": audio_response
+        })
+
+        
+    except Exception as e:
+        print(f"❌ AI 语音接口异常：{str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "success": False,
+            "error": f"AI 语音服务异常：{str(e)}"
+        }), 500
+
+
+@ai_bp.route('/chat/image', methods=['POST'])
+def chat_image():
+    """AI 图像分析接口"""
+    print("=" * 60)
+    print("🖼️  收到图像分析请求")
+    print("=" * 60)
+    
+    try:
+        # 打印请求信息
+        print(f"📋 请求方法: {request.method}")
+        print(f"📋 请求类型: {request.content_type}")
+        print(f"📋 表单数据: {list(request.form.keys())}")
+        print(f"📋 文件列表: {list(request.files.keys())}")
+        
+        # 检查是否有文件上传
+        if 'image' not in request.files:
+            print(f"❌ 没有找到 image 文件")
+            print(f"❌ 可用文件: {list(request.files.keys())}")
+            return jsonify({
+                "success": False,
+                "error": "请上传图像文件"
+            }), 400
+        
+        image_file = request.files['image']
+        print(f"📁 文件名: {image_file.filename}")
+        print(f"📁 文件类型: {image_file.content_type}")
+        
+        # 读取文件内容
+        image_data = image_file.read()
+        print(f"📁 文件大小: {len(image_data)} bytes")
+        
+        # 获取其他参数
+        message = request.form.get('message', '')
+        user_id = request.form.get('user_id', 'guest')
+
+        print(f"📝 图像参数:")
+        print(f"   - message: {message}")
+        print(f"   - user_id: {user_id}")
+
+        # 调用 AI 图像服务
+        print("🔄 调用 AI 服务...")
+        result = ai_banker.chat_image(image_file, message, user_id)
+        print(f"🤖 图像响应: {result}")
+
+        return jsonify({
+            "success": True,
+            "image_analysis": result.get('analysis', ''),
+            "response": result.get('response', '')
+        })
+
+    except Exception as e:
+        print(f"❌ AI 图像接口异常：{str(e)}")
+        print(f"❌ 错误堆栈：\n{traceback.format_exc()}")
+        return jsonify({
+            "success": False,
+            "error": f"AI 图像服务异常：{str(e)}"
+        }), 500
+
+@ai_bp.route('/advice', methods=['GET'])
 def get_investment_advice():
-    """Get personalized investment advice"""
+    """获取投资建议"""
     try:
-        user_id = get_jwt_identity()
-        user = User.query.get(user_id)
-        
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
-        
-        # Get user profile data (would come from a user profile table in production)
-        user_profile = {
-            'age': request.args.get('age', 35),
-            'risk_tolerance': request.args.get('risk_tolerance', 'medium'),
-            'investment_goal': request.args.get('goal', 'growth'),
-            'time_horizon': request.args.get('horizon', '5 years'),
-            'portfolio': request.args.get('portfolio', 'mixed')
-        }
-        
-        # Get market data (simplified)
-        market_data = {
-            'stock_trend': 'bullish',
-            'crypto_trend': 'volatile',
-            'interest_rate': 'stable'
-        }
-        
-        # Generate advice
-        advice = ai_service.generate_investment_advice(user_profile, market_data)
-        
-        # Log interaction
-        interaction = AIInteraction(
-            user_id=user_id,
-            interaction_type='investment_advice',
-            prompt=json.dumps(user_profile),
-            response=advice.get('advice', ''),
-            model_used=advice.get('model', 'unknown'),
-            tokens_used=0
-        )
-        db.session.add(interaction)
-        db.session.commit()
-        
-        return jsonify({
-            'advice': advice.get('advice'),
-            'generated_at': advice.get('generated_at'),
-            'profile_used': user_profile
-        }), 200
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        account_id = request.args.get('accountId')
 
-@ai_bp.route('/api/ai/analyze-spending', methods=['GET'])
-@jwt_required()
+        if not account_id:
+            return jsonify({
+                "success": False,
+                "error": "请提供 accountId 参数"
+            }), 400
+
+        # 调用 AI 服务获取投资建议
+        advice = ai_banker.get_investment_advice(account_id)
+
+        return jsonify({
+            "success": True,
+            "advice": advice
+        })
+
+    except Exception as e:
+        print(f"❌ 投资建议接口异常：{str(e)}")
+        print(f"❌ 错误堆栈：\n{traceback.format_exc()}")
+        return jsonify({
+            "success": False,
+            "error": f"服务异常：{str(e)}"
+        }), 500
+
+@ai_bp.route('/analyze-spending', methods=['GET'])
 def analyze_spending():
-    """Analyze spending patterns"""
+    """支出分析"""
     try:
-        user_id = get_jwt_identity()
-        
-        # Get user's transactions from last 3 months
-        from datetime import datetime, timedelta
-        three_months_ago = datetime.utcnow() - timedelta(days=90)
-        
-        transactions = []
-        user = User.query.get(user_id)
-        if user:
-            for account in user.accounts:
-                account_transactions = account.transactions
-                for tx in account_transactions:
-                    if tx.created_at >= three_months_ago:
-                        transactions.append(tx.to_dict())
-        
-        # Analyze spending
-        analysis = ai_service.analyze_spending_patterns(transactions)
-        
-        return jsonify(analysis), 200
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        account_id = request.args.get('accountId')
 
-@ai_bp.route('/api/ai/categorize', methods=['POST'])
-@jwt_required()
-def categorize_transactions():
-    """Categorize transactions using AI"""
+        if not account_id:
+            return jsonify({
+                "success": False,
+                "error": "请提供 accountId 参数"
+            }), 400
+
+        # 调用 AI 服务进行支出分析
+        analysis = ai_banker.analyze_spending(account_id)
+
+        return jsonify({
+            "success": True,
+            "analysis": analysis
+        })
+
+    except Exception as e:
+        print(f"❌ 支出分析接口异常：{str(e)}")
+        print(f"❌ 错误堆栈：\n{traceback.format_exc()}")
+        return jsonify({
+            "success": False,
+            "error": f"服务异常：{str(e)}"
+        }), 500
+
+@ai_bp.route('/ocr/extract', methods=['POST'])
+def ocr_extract():
+    """OCR文本提取接口"""
     try:
-        data = request.get_json()
+        if 'image' not in request.files:
+            return jsonify({
+                "success": False,
+                "error": "请上传图像文件"
+            }), 400
         
-        if not data or not isinstance(data.get('transactions'), list):
-            return jsonify({'error': 'Transactions list is required'}), 400
+        image_file = request.files['image']
+        image_data = image_file.read()
         
-        categorized = []
-        for tx in data['transactions']:
-            description = tx.get('description', '')
-            amount = tx.get('amount', 0)
+        # 使用图像服务提取文本
+        if ai_banker.image_enabled:
+            image = Image.open(io.BytesIO(image_data))
+            text = ai_banker.image_service._extract_text(image)
             
-            category = ai_service.categorize_transaction(description, amount)
-            
-            categorized.append({
-                **tx,
-                'ai_category': category,
-                'original_description': description
+            return jsonify({
+                "success": True,
+                "text": text,
+                "text_length": len(text),
+                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ")
             })
-        
+        else:
+            return jsonify({
+                "success": False,
+                "error": "图像服务未启用"
+            }), 500
+            
+    except Exception as e:
         return jsonify({
-            'categorized_transactions': categorized,
-            'total_count': len(categorized)
-        }), 200
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+            "success": False,
+            "error": str(e)
+        }), 500
 
-@ai_bp.route('/api/ai/detect-fraud', methods=['POST'])
-@jwt_required()
-def detect_fraud():
-    """Detect potential fraud in transactions"""
-    try:
-        user_id = get_jwt_identity()
-        data = request.get_json()
-        
-        if not data:
-            return jsonify({'error': 'Transaction data is required'}), 400
-        
-        # Get user's transaction history
-        user = User.query.get(user_id)
-        history = []
-        if user:
-            for account in user.accounts:
-                for tx in account.transactions[:50]:  # Last 50 transactions
-                    history.append(tx.to_dict())
-        
-        # Detect fraud
-        fraud_result = ai_service.detect_fraud(data, history)
-        
-        # Log detection
-        interaction = AIInteraction(
-            user_id=user_id,
-            interaction_type='fraud_detection',
-            prompt=json.dumps(data),
-            response=json.dumps(fraud_result),
-            model_used='isolation_forest+gpt'
-        )
-        db.session.add(interaction)
-        db.session.commit()
-        
-        return jsonify(fraud_result), 200
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@ai_bp.route('/api/ai/sessions', methods=['GET'])
-@jwt_required()
-def get_chat_sessions():
-    """Get user's chat sessions"""
-    try:
-        user_id = get_jwt_identity()
-        
-        sessions = ChatSession.query.filter_by(
-            user_id=user_id
-        ).order_by(ChatSession.created_at.desc()).limit(20).all()
-        
+@ai_bp.route('/voice/languages', methods=['GET'])
+def get_supported_languages():
+    """获取支持的语音语言"""
+    if ai_banker.voice_enabled:
+        languages = ai_banker.voice_service.get_supported_languages()
         return jsonify({
-            'sessions': [session.to_dict() for session in sessions]
-        }), 200
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@ai_bp.route('/api/ai/session/<session_id>/messages', methods=['GET'])
-@jwt_required()
-def get_chat_messages(session_id):
-    """Get messages for a specific chat session"""
-    try:
-        user_id = get_jwt_identity()
-        
-        # Verify session belongs to user
-        session = ChatSession.query.filter_by(
-            id=session_id,
-            user_id=user_id
-        ).first()
-        
-        if not session:
-            return jsonify({'error': 'Session not found'}), 404
-        
-        messages = ChatMessage.query.filter_by(
-            session_id=session_id
-        ).order_by(ChatMessage.timestamp.asc()).all()
-        
+            "success": True,
+            "languages": languages
+        })
+    else:
         return jsonify({
-            'session': session.to_dict(),
-            'messages': [msg.to_dict() for msg in messages]
-        }), 200
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+            "success": False,
+            "error": "语音服务未启用"
+        }), 500
 
-@ai_bp.route('/api/ai/feedback', methods=['POST'])
-@jwt_required()
-def submit_feedback():
-    """Submit feedback for AI interaction"""
+@ai_bp.route('/validate/id-card', methods=['POST'])
+def validate_id_card():
+    """验证身份证图片"""
     try:
-        user_id = get_jwt_identity()
-        data = request.get_json()
+        if 'image' not in request.files:
+            return jsonify({
+                "success": False,
+                "error": "请上传身份证图片"
+            }), 400
         
-        if not data or not data.get('interaction_id') or not data.get('rating'):
-            return jsonify({'error': 'Interaction ID and rating are required'}), 400
+        image_file = request.files['image']
+        image_data = image_file.read()
         
-        interaction = AIInteraction.query.filter_by(
-            id=data['interaction_id'],
-            user_id=user_id
-        ).first()
-        
-        if not interaction:
-            return jsonify({'error': 'Interaction not found'}), 404
-        
-        interaction.feedback = int(data['rating'])
-        
-        if data.get('comment'):
-            # Store comment in metadata or separate field
-            pass
-        
-        db.session.commit()
-        
-        return jsonify({
-            'message': 'Feedback submitted successfully',
-            'interaction_id': interaction.id,
-            'rating': interaction.feedback
-        }), 200
-        
+        if ai_banker.image_enabled:
+            result = ai_banker.image_service.validate_id_card(image_data)
+            return jsonify({
+                "success": True,
+                "validation_result": result,
+                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ")
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": "图像服务未启用"
+            }), 500
+            
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+@ai_bp.route('/system/capabilities', methods=['GET'])
+def system_capabilities():
+    """获取系统能力信息"""
+    info = ai_banker.get_system_info()
+    
+    capabilities = {
+        "text_chat": True,
+        "voice_chat": ai_banker.voice_enabled,
+        "image_chat": ai_banker.image_enabled,
+        "ocr_extraction": ai_banker.image_enabled,
+        "financial_document_analysis": ai_banker.image_enabled,
+        "id_card_validation": ai_banker.image_enabled,
+        "multilingual_support": ai_banker.voice_enabled,
+        "knowledge_base": True,
+        "real_time_response": True
+    }
+    
+    return jsonify({
+        "success": True,
+        "capabilities": capabilities,
+        "system_info": info
+    })

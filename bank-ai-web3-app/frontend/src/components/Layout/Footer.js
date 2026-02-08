@@ -1,18 +1,39 @@
 import React from 'react';
+import '../../App.css';
 
 function Footer() {
+  const currentYear = new Date().getFullYear();
+
   return (
-    <footer style={{
-      background: '#2c3e50',
-      color: 'white',
-      textAlign: 'center',
-      padding: '20px',
-      marginTop: 'auto'
-    }}>
-      <p>© 2024 AI Web3 Bank - 结合人工智能与区块链技术的智能银行系统</p>
-      <p style={{ fontSize: '14px', marginTop: '5px', opacity: 0.8 }}>
-        这是一个教学演示项目，所有数据均为模拟数据
-      </p>
+    <footer className="footer">
+      <div className="footer-content">
+        <div className="footer-section">
+          <h4>SecureTrust Bank</h4>
+          <p>AI-Powered Financial Services</p>
+        </div>
+        
+        <div className="footer-section">
+          <h4>Contact</h4>
+          <p>Customer Support: 1-800-BANK-AI</p>
+          <p>Email: support@securetrust.com</p>
+        </div>
+        
+        <div className="footer-section">
+          <h4>Legal</h4>
+          <a href="/privacy" className="footer-link">Privacy Policy</a>
+          <a href="/terms" className="footer-link">Terms of Service</a>
+          <a href="/security" className="footer-link">Security</a>
+        </div>
+      </div>
+      
+      <div className="footer-bottom">
+        <p>
+          © {currentYear} SecureTrust Bank - All Rights Reserved
+        </p>
+        <p className="disclaimer">
+          This is a demonstration project. All data is simulated for educational purposes.
+        </p>
+      </div>
     </footer>
   );
 }
