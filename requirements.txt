@@ -4,6 +4,7 @@ Flask-CORS==4.0.0
 Flask-JWT-Extended==4.5.3
 fastapi==0.104.1
 uvicorn==0.24.0
+gunicorn==21.2.0
 
 # environment
 python-dotenv==1.0.0
